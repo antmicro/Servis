@@ -5,7 +5,9 @@ from contextlib import redirect_stdout
 from pathlib import Path
 import logging
 
-from servis.utils import validate_colormap, validate_kwargs
+from servis.utils import (
+    validate_colormap, validate_kwargs, range_over_lists, histogram
+)
 
 BAR_WIDTH = 0.1
 LOGGER = logging.getLogger(__name__)
@@ -90,35 +92,6 @@ def _set_plot_attributes(
     plotext.ticks_color(ticks_color)
 
 
-def histogram(data: List, bounds: Tuple, bins: int = 10) -> Tuple[List]:
-    """
-    Calculates histogram of data.
-
-    Parameters
-    ----------
-    data : List
-        Values to calculate histogram
-    bounds : Tuple
-        Lower and upper bound of data
-    bins : int
-        On how many bins data should be divided
-
-    Returns
-    -------
-    List
-        Quantities of values in bins
-    List
-        Bins edges - where they start and end
-    """
-    lower, upper = bounds[0], bounds[1] + 1e-5
-    step = (upper - lower) / bins
-    buckets = [i*step + lower for i in range(bins + 1)]
-    quantities = [0] * bins
-    for value in data:
-        quantities[int((value - lower) / step)] += 1
-    return quantities, buckets
-
-
 def create_ascii_histogram(
         sub_ydatas: List[List],
         title: Optional[str] = None,
@@ -171,12 +144,10 @@ def create_ascii_histogram(
 
     # Prepare histogram data
     hist_data = []
-    min_y = min([min(ydata) for ydata in sub_ydatas])
-    max_y = max([max(ydata) for ydata in sub_ydatas])
     for ydata in sub_ydatas:
         values, bin_edges = histogram(
             ydata, bins=bins,
-            bounds=(min_y, max_y))
+            bounds=range_over_lists(sub_ydatas))
         hist_data.append(values)
     bin_middles = [(b_start + b_end) / 2 for b_start,
                    b_end in zip(bin_edges[:-1], bin_edges[1:])]
@@ -195,8 +166,7 @@ def create_ascii_histogram(
         for quantities, color in zip(hist_data, data_colors):
             draw_hist(quantities, bin_middles, color=color)
 
-    min_x = min([min(data) for data in hist_data])
-    max_x = max([max(data) for data in hist_data])
+    min_x, max_x = range_over_lists(hist_data)
     _set_plot_attributes(
         title=title,
         xtitle=xtitle,
